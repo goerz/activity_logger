@@ -15,7 +15,7 @@ This code is licensed under the [GPL](http://www.gnu.org/licenses/gpl.html)
 ## Install ##
 
 Store the `activity_logger.pl` script anywhere in your `$PATH`. Edit it to set
-the location where log files should be stored.
+the user to monitor and the location where log files should be stored.
 
 Note that that this software will only work on Mac OS X
 
