@@ -29,7 +29,7 @@ print TEX
 
 \usepackage[active,tightpage]{preview} 
 \PreviewEnvironment{tikzpicture}
-%\setlength\PreviewBorder{2mm}
+\setlength\PreviewBorder{2mm}
 
 \begin{document}', "\n";
 
@@ -95,6 +95,7 @@ while ($axis_t <= $t_stop){
     my ($sec,$min,$hour,$day,
         $month,$year,$wday,$yday,$isdst) = localtime($axis_t);
     $year += 1900;
+    $month += 1;
     my $date = sprintf("%04i-%02i-%02i", $year, $month, $day);
     my $x_coord = $cm_per_hour * ($axis_t - $t0) / 3600;
     print TEX "\\draw ($x_coord, 0) +(0,0.1) -- +(0,-0.1) node[below] {$hour};\n";
