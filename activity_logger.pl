@@ -1,9 +1,10 @@
 #!/usr/bin/perl -w
 use strict;
 use IO::Handle;
-use Proc::Daemon;
+#use Proc::Daemon;
 
-Proc::Daemon::Init;
+#Proc::Daemon::Init;
+# Don't daemonize if you're running this as a launch agent!
 
 use constant IDLE_TIMEOUT    => 600;
 use constant SLEEP_TIME      => 30;
@@ -20,6 +21,20 @@ $year += 1900;
 $month = sprintf("%02i", $month);
 my $log_file = $log_folder . '/' . 'activity' . $year . '-' . $month .  '.log';
 my $mtime = (stat $log_file)[9];
+if ( -f "$log_file.lock"){
+    open(LOCK, ">$log_file.lock") or die ("Can't set lock\n");
+    my $pid = <LOCK>;
+    close LOCK;
+    my $locking_process = `ps -p $pid`;
+    if ($locking_process =~ /activity_logger/){
+        exit(1) # another process is writing to the log file
+    } else {
+        system("rm -f $log_file.lock");
+    }
+}
+open(LOCK, ">$log_file.lock") or die ("Can't set lock\n");
+print LOCK $$;
+close LOCK;
 open my($LOG), ">>", $log_file or die ("Can't open $log_file\n");
 $LOG->autoflush(1);
 if (defined($mtime)){
