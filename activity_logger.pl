@@ -60,7 +60,7 @@ while (1){
         print $LOG int($loop_timestamp + 1) . "\t-1\t\n";
         $system_is_active = 0;
     }
-    my $user = `tail -200 /var/log/secure.log | grep "User info context values set" | tail -1`;
+    my $user = `stat -f%Su /dev/console`;
     $user =~ s/^.* //;
     $user =~ s/\s*$//;
     if ($user ne $monitor_user){
