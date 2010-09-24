@@ -211,6 +211,9 @@ my $brightness = 1;
 my $saturation = 1;
 foreach my $app (@apps_by_usage){
     my ($r, $g, $b) = hsv2rgb($hue, $saturation, $brightness);
+    $r = sprintf("%.04f", $r);
+    $g = sprintf("%.04f", $g);
+    $b = sprintf("%.04f", $b);
     print TEX "\\definecolor{$app}{rgb}{$r,$g,$b}\n";
     $colors{$app} = $app;
     $hue = ($hue + $hue_step) % 360;
