@@ -188,7 +188,7 @@ foreach my $year (keys(%activity_data)){
             push(@totals, $total);
             foreach my $app (keys(%{$activity_data{$year}->{$month}->{$day}})){
                 my $app_t = $activity_data{$year}->{$month}->{$day}->{$app};
-                if ($app_t < ($percent / 100.0) * $total){
+                if ($app_t < ($percent / 100.0) * $total or $app_t < 300){
                     delete($activity_data{$year}->{$month}->{$day}->{$app});
                     $activity_data{$year}->{$month}->{$day}->{'Other'} 
                     += $app_t;
