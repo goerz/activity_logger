@@ -2,7 +2,7 @@
 use strict;
 
 # Usage example:
-#   cat *.log | plot_usage.pl out.tex && pdflatex out.tex 
+#   cat *.log | plot_usage.pl out.tex && pdflatex out.tex
 
 # Create a plot of usage per day
 
@@ -13,31 +13,83 @@ my $hheight = 1;
 my $dwidth = 1;
 my $percent = 2;
 my $debug='';
+my $context='';
 
 GetOptions ("hheight=f"   => \$hheight,  # height (cm) of one hour
             "dwidth=f" => \$dwidth,      # width (cm) of one day
-            "percent=f"  => \$percent,
-            "debug" => \$debug);  # min % of a day an app must be used
+            "context" => \$context,      # write tex for ConTeXt?
+            "percent=f"  => \$percent,   # min % of a day an app must be used
+            "debug" => \$debug);
 
 my $outfile = pop(@ARGV);
 open(TEX, ">$outfile") or die("Couldn't open $outfile\n");
 
 my @weekday = ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat");
 
-print TEX
-'\documentclass{minimal}
+if ($context){
+    print TEX '\usemodule[tikz]
+\usetypescript[adventor]
+\setupbodyfont[adventor,10pt]
+\starttext
+\startTEXpage', "\n";
+    print TEX '
+%%%% fix for definiting colors
+% http://www.ntg.nl/pipermail/ntg-context/2010/046347.html
+\startluacode
+  pgfutil = pgfutil or { }
+  local texsprint, format = tex.sprint, string.format
+  local prtcatcodes = tex.prtcatcodes
+
+  function pgfutil.unsupported_color(name)
+    texsprint(prtcatcodes,format("\\\\PackageError{pgf}{color %s has unsupported model}{}", name))
+    texsprint(prtcatcodes,format("\\\\pgfutil@definecolor{%s}{gray}{0}", name))
+  end
+
+  function pgfutil.registercolor(name, attributes)
+    print(name, attributes)
+    local cv = colors.value(attributes)
+    if cv then
+      local model = cv[1]
+      if model == 1 then
+        print("model=1")
+        texsprint(prtcatcodes,format("\\\\pgfutil@definecolor{%s}{gray}{%1.3f}", name, cv[2]))
+      elseif model == 3 then
+        print("model=2")
+        texsprint(prtcatcodes,format("\\\\pgfutil@definecolor{%s}{rgb}{%1.3f,%1.3f,%1.3f}", name, cv[3], cv[4], cv[5]))
+      else
+        print("no model")
+        pgfutil.unsupported_color(name)
+      end
+    else
+        print("no color")
+      pgfutil.unsupported_color(name)
+    end
+  end
+\stopluacode
+
+\unprotect
+\def\pgfutil@registercolor#1%
+  {\ctxlua{pgfutil.registercolor("#1",\thecolorattribute       {#1})}}
+\protect
+    %%%% end fix for definiting colors', "\n";
+
+    print TEX '\starttikzpicture', "\n";
+    print TEX '\tikzstyle{every node}=[font=\ss]', "\n"; # for adventor
+} else {
+    print TEX '\documentclass{minimal}
 \usepackage{tikz}
-\usepackage[T1]{fontenc}                                                        
-\usepackage{tgadventor}                                                         
+\usepackage[T1]{fontenc}
+\usepackage{tgadventor}
 \renewcommand*\familydefault{\sfdefault}
 
-\usepackage[active,tightpage]{preview} 
+\usepackage[active,tightpage]{preview}
 \PreviewEnvironment{tikzpicture}
 \setlength\PreviewBorder{2mm}
 
 \begin{document}', "\n";
 
-print TEX '\begin{tikzpicture}[]', "\n";
+    print TEX '\begin{tikzpicture}[]', "\n";
+}
 
 my %activity_data;
 my %colors;
@@ -79,7 +131,7 @@ sub get_usagetime_for_day{ # usage in seconds
     my $year = shift;
     my $month = shift;
     my $day = shift;
-    if (exists $activity_data{$year} 
+    if (exists $activity_data{$year}
     and exists $activity_data{$year}->{$month}
     and exists $activity_data{$year}->{$month}->{$day}){
         my $result = 0;
@@ -160,7 +212,7 @@ while (<STDIN>){
         my $date = sprintf("%04i-%02i-%02i", $year, $month, $day);
         if ($2 == 1) { # switch to active
             if ($prev_status == 1){
-                $activity_data{$year}->{$month}->{$day}->{$current_program} 
+                $activity_data{$year}->{$month}->{$day}->{$current_program}
                 += $1 - $act_start_time;
             }
             $act_start_time = $1;
@@ -168,7 +220,7 @@ while (<STDIN>){
             $prev_status = 1;
         } else { # switch to inactive
             if ($prev_status == 1){
-                $activity_data{$year}->{$month}->{$day}->{$current_program} 
+                $activity_data{$year}->{$month}->{$day}->{$current_program}
                 += $1 - $act_start_time;
             }
             $prev_status = 0;
@@ -190,7 +242,7 @@ foreach my $year (keys(%activity_data)){
                 my $app_t = $activity_data{$year}->{$month}->{$day}->{$app};
                 if ($app_t < ($percent / 100.0) * $total or $app_t < 300){
                     delete($activity_data{$year}->{$month}->{$day}->{$app});
-                    $activity_data{$year}->{$month}->{$day}->{'Other'} 
+                    $activity_data{$year}->{$month}->{$day}->{'Other'}
                     += $app_t;
                 } else {
                     $app_usage{$app} += $app_t;
@@ -214,7 +266,11 @@ foreach my $app (@apps_by_usage){
     $r = sprintf("%.04f", $r);
     $g = sprintf("%.04f", $g);
     $b = sprintf("%.04f", $b);
-    print TEX "\\definecolor{$app}{rgb}{$r,$g,$b}\n";
+    if ($context){
+        print TEX "\\definecolor[$app][r=$r,g=$g,b=$b]\n";
+    } else {
+        print TEX "\\definecolor{$app}{rgb}{$r,$g,$b}\n";
+    }
     $colors{$app} = $app;
     $hue = ($hue + $hue_step) % 360;
     $brightness -= 0.1;
@@ -237,7 +293,7 @@ while ($t <= $plot_stop_time){
     foreach my $app (@apps_by_usage){
         if (exists $activity_data{$year}->{$month}->{$day}->{$app}){
             my $app_seconds = $activity_data{$year}->{$month}->{$day}->{$app};
-            draw_activity_box($day_number, $usage_seconds, 
+            draw_activity_box($day_number, $usage_seconds,
                               $usage_seconds + $app_seconds, $colors{$app});
             $usage_seconds += $app_seconds;
         }
@@ -246,12 +302,12 @@ while ($t <= $plot_stop_time){
     my $dayname = $weekday[int($wday)];
     my $hours_for_day = get_usagetime_for_day($year, $month, $day) / 3600;
     print TEX "\\node[above, rotate=90] at (",
-            ($day_number-0.2) * $dwidth + $global_x_offset, ",", 
-            $hours_for_day * $hheight + 1.0, 
-            ") {(\\kern2pt", sprintf("%.1f", $hours_for_day), 
+            ($day_number-0.2) * $dwidth + $global_x_offset, ",",
+            $hours_for_day * $hheight + 1.0,
+            ") {(\\kern2pt", sprintf("%.1f", $hours_for_day),
             " h\\kern2pt)};\n";
-    print TEX "\\node[below, rotate=90] at (", 
-                ($day_number - 0.8) * $dwidth + $global_x_offset,  
+    print TEX "\\node[below, rotate=90] at (",
+                ($day_number - 0.8) * $dwidth + $global_x_offset,
                 ",-1.5) {$date \$\\cdot\$ $dayname};\n";
     $t += 24 * 3600;
     $global_x_offset += $x_offset_per_day;
@@ -264,7 +320,7 @@ my $median;
 @totals = sort @totals;
 my $full_days = @totals;
 if ($full_days % 2 ==0){
-    $median = ( $totals[int($full_days / 2)-1] 
+    $median = ( $totals[int($full_days / 2)-1]
               + $totals[int($full_days / 2)] ) / 2;
 } else {
     $median = $totals[int($full_days / 2)];
@@ -286,8 +342,8 @@ my $needed_space = 0.5 * @apps_by_usage;
 my $ly0 = ($available_space - $needed_space) / 2.0;
 my $i = 0;
 foreach my $app (@apps_by_usage){
-    print TEX "\\draw[fill=$colors{$app}] (", 
-          ($day_number+1) * $dwidth + $global_x_offset, ",", $ly0 + $i*0.5, 
+    print TEX "\\draw[fill=$colors{$app}] (",
+          ($day_number+1) * $dwidth + $global_x_offset, ",", $ly0 + $i*0.5,
           ") rectangle +(0.4,0.4) +(0.4,0.2) node[right]{$app};\n";
     $i += 1;
 }
@@ -300,8 +356,14 @@ while ($h<=int($max_total/3600) + 1){
     $h += 1;
 }
 
-print TEX '\end{tikzpicture}', "\n";
-print TEX '\end{document}', "\n";
+if ($context){
+    print TEX '\stoptikzpicture', "\n";
+    print TEX '\stopTEXpage ', "\n";
+    print TEX '\stoptext', "\n";
+} else {
+    print TEX '\end{tikzpicture}', "\n";
+    print TEX '\end{document}', "\n";
+}
 
 if ($debug){
     use Data::Dumper;
