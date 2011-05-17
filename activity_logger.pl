@@ -18,7 +18,7 @@ my $log_folder = '/Users/'. $monitor_user . '/.activity_logs';
 my ($sec,$min,$hour,$mday,
     $month,$year,$wday,$yday,$isdst) = localtime(time);
 $year += 1900;
-$month = sprintf("%02i", $month);
+$month = sprintf("%02i", $month+1);
 my $log_file = $log_folder . '/' . 'activity' . $year . '-' . $month .  '.log';
 my $mtime = (stat $log_file)[9];
 if ( -f "$log_file.lock"){
