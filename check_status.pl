@@ -7,7 +7,7 @@ use IO::Handle;
 
 my $monitor_user = 'goerz';
 
-my $timelimit = 10000;
+my $timelimit = 3800;
 
 sub notify{
     my $program_name = "/usr/local/bin/growlnotify -s -t 'Activity Logger Error' > /dev/null 2>&1";
