@@ -13,7 +13,7 @@ while (<STDIN>){
             $month,$year,$wday,$yday,$isdst) = localtime($1);
         $year = $year + 1900;
         my $time = sprintf("%04i-%02i-%02i %02i:%02i:%02i", 
-                        $year, $month, $day, $hour, $min, $sec);
+                        $year, $month+1, $day, $hour, $min, $sec);
         print "$time\t$2\t$3\n";
     } else {
         die ("Couldn't parse line:\n$_");
