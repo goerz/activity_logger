@@ -19,6 +19,7 @@ my $monitor_user = 'goerz';
 my $system_is_active = 0;
 my $user_is_logged_in = 1;
 
+
 my $log_folder = '/Users/'. $monitor_user . '/.activity_logs';
 my ($sec,$min,$hour,$mday,
     $month,$year,$wday,$yday,$isdst) = localtime(time);
@@ -46,6 +47,13 @@ if (defined($mtime)){
     print $LOG int($mtime) . "\t-1\t\n";
 }
 my $front_app = '';
+
+sub finish_logger{
+    $LOG->close;
+    unlink("$log_file.lock")
+    exit
+}
+$SIG{TERM} = \&finish_logger;
 
 my $loop_timestamp = time;
 my $last_logged = time;
@@ -118,4 +126,3 @@ while (1){
     $loop_timestamp = $now;
     sleep SLEEP_TIME;
 }
-$LOG->close;
