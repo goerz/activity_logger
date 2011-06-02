@@ -6,8 +6,13 @@ use IO::Handle;
 #Proc::Daemon::Init;
 # Don't daemonize if you're running this as a launch agent!
 
-use constant IDLE_TIMEOUT    => 600;
-use constant SLEEP_TIME      => 30;
+use constant IDLE_TIMEOUT   => 600;  # seconds of inactivity after which an 
+                                     # idle status is recognized
+
+use constant SLEEP_TIME     => 30;   # seconds to sleep between polling status
+
+use constant MAX_LOG_DELTA  => 3600; # Put a point in the log file at least 
+                                     # every so many seconds
 
 my $monitor_user = 'goerz';
 
@@ -43,6 +48,7 @@ if (defined($mtime)){
 my $front_app = '';
 
 my $loop_timestamp = time;
+my $last_logged = time;
 while (1){
     open(IOREG, 'ioreg -c IOHIDSystem|') or die("Can't read ioreg\n");
     my $idle = 0.0;
@@ -66,27 +72,47 @@ while (1){
     if ($user ne $monitor_user){
         if ($user_is_logged_in){
             print $LOG int($now) . "\t-1\t\n";
+            $last_logged = $now;
         }
         $user_is_logged_in = 0;
     } else {
         $user_is_logged_in = 1;
     }
     if ($user_is_logged_in){
-        if ( ($idle > IDLE_TIMEOUT) and  $system_is_active ){
-            $switched = 1;
-            $system_is_active = 0;
-            print $LOG int($now - $idle) . "\t0\t\n";
-        } elsif ( ($idle < IDLE_TIMEOUT) and not $system_is_active ) {
+        if ($idle > IDLE_TIMEOUT){
+            if ($system_is_active){
+                # switch from active to idle
+                $switched = 1;
+                $system_is_active = 0;
+                print $LOG int($now - $idle) . "\t0\t\n";
+                $last_logged = $now;
+            } elsif ($now - $last_logged > MAX_LOG_DELTA) {
+                # we were idle before and are still idle now, but we should put
+                # something in the log file just to keep it fresh
+                print $LOG int($now - $idle) . "\t0\t\n";
+                $last_logged = $now;
+            }
+        } elsif ( ($idle <= IDLE_TIMEOUT) and not $system_is_active ) {
+            # switch from idle to active
             $switched = 1;
             $system_is_active = 1;
         }
         if ($system_is_active){
             my $cur_front_app = `osascript -e 'tell application "System Events"' -e 'set frontApp to name of first application process whose frontmost is true' -e 'end tell'`;
             $cur_front_app =~ s/\s*$//;
-            if ($cur_front_app ne $front_app or $switched){
+            if (($cur_front_app ne $front_app) or ($switched) 
+            or  ($now - $last_logged > MAX_LOG_DELTA)){
                 $front_app = $cur_front_app;
                 print $LOG int($now - $idle - 1) . "\t1\t".$front_app."\n";
+                $last_logged = $now;
             }
+        }
+    } else {
+        # Even if the user is not actively logged in, we should keep the log
+        # file fresh
+        if ($now - $last_logged > MAX_LOG_DELTA){
+            print $LOG int($now) . "\t-1\t\n";
+            $last_logged = $now;
         }
     }
     $loop_timestamp = $now;
