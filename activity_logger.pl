@@ -20,7 +20,7 @@ my $log_folder = '/Users/'. $monitor_user . '/.activity_logs';
 
 sub get_logfilename{
     my ($sec,$min,$hour,$mday,
-        $month,$year,$wday,$yday,$isdst) = localtime(time);
+        $month,$year,$wday,$yday,$isdst) = gmtime(time);
     $year += 1900;
     $month = sprintf("%02i", $month+1);
     return $log_folder . '/' . 'activity' . $year . '-' . $month .  '.log';
