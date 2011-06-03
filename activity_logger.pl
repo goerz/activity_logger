@@ -16,48 +16,71 @@ use constant MAX_LOG_DELTA  => 3600; # Put a point in the log file at least
 
 my $monitor_user = 'goerz';
 
+my $log_folder = '/Users/'. $monitor_user . '/.activity_logs';
+
+sub get_logfilename{
+    my ($sec,$min,$hour,$mday,
+        $month,$year,$wday,$yday,$isdst) = localtime(time);
+    $year += 1900;
+    $month = sprintf("%02i", $month+1);
+    return $log_folder . '/' . 'activity' . $year . '-' . $month .  '.log';
+}
+
+sub lock_logfile{
+    my $log_file = shift;
+    if ( -f "$log_file.lock"){
+        open(LOCK, "$log_file.lock") or die ("Can't set lock\n");
+        my $pid = <LOCK>;
+        close LOCK;
+        my $locking_process = `ps -p $pid`;
+        if ($locking_process =~ /activity_logger/){
+            exit(1) # another process is writing to the log file
+        } else {
+            system("rm -f $log_file.lock");
+        }
+    }
+    open(LOCK, ">$log_file.lock") or die ("Can't set lock\n");
+    print LOCK $$;
+    close LOCK;
+}
+
+sub open_logfile{
+    my $log_file = shift;
+    lock_logfile($log_file);
+    my $mtime = (stat $log_file)[9];
+    open my($LOG), ">>", $log_file or die ("Can't open $log_file\n");
+    $LOG->autoflush(1);
+    if (defined($mtime)){
+        print $LOG int($mtime) . "\t-1\t\n";
+    }
+    return $LOG;
+}
+
 my $system_is_active = 0;
 my $user_is_logged_in = 1;
 
-
-my $log_folder = '/Users/'. $monitor_user . '/.activity_logs';
-my ($sec,$min,$hour,$mday,
-    $month,$year,$wday,$yday,$isdst) = localtime(time);
-$year += 1900;
-$month = sprintf("%02i", $month+1);
-my $log_file = $log_folder . '/' . 'activity' . $year . '-' . $month .  '.log';
-my $mtime = (stat $log_file)[9];
-if ( -f "$log_file.lock"){
-    open(LOCK, ">$log_file.lock") or die ("Can't set lock\n");
-    my $pid = <LOCK>;
-    close LOCK;
-    my $locking_process = `ps -p $pid`;
-    if ($locking_process =~ /activity_logger/){
-        exit(1) # another process is writing to the log file
-    } else {
-        system("rm -f $log_file.lock");
-    }
-}
-open(LOCK, ">$log_file.lock") or die ("Can't set lock\n");
-print LOCK $$;
-close LOCK;
-open my($LOG), ">>", $log_file or die ("Can't open $log_file\n");
-$LOG->autoflush(1);
-if (defined($mtime)){
-    print $LOG int($mtime) . "\t-1\t\n";
-}
+my $log_file = get_logfilename();
+my $LOG = open_logfile($log_file);
 my $front_app = '';
 
 sub finish_logger{
     $LOG->close;
-    unlink("$log_file.lock")
-    exit
+    unlink("$log_file.lock");
+    exit;
 }
 $SIG{TERM} = \&finish_logger;
 
 my $loop_timestamp = time;
 my $last_logged = time;
 while (1){
+    my $new_logfile_name = get_logfilename();
+    # start a new log file if we're passing to a new month
+    if ($new_logfile_name ne $log_file){
+        $LOG->close;
+        unlink("$log_file.lock");
+        $log_file = $new_logfile_name;
+        $LOG = open_logfile($log_file);
+    }
     open(IOREG, 'ioreg -c IOHIDSystem|') or die("Can't read ioreg\n");
     my $idle = 0.0;
     while (<IOREG>){
