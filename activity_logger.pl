@@ -97,7 +97,7 @@ while (1){
             } elsif ($now - $last_logged > MAX_LOG_DELTA) {
                 # we were idle before and are still idle now, but we should put
                 # something in the log file just to keep it fresh
-                print $LOG int($now - $idle) . "\t0\t\n";
+                print $LOG int($now) . "\t0\t\n";
                 $last_logged = $now;
             }
         } elsif ( ($idle <= IDLE_TIMEOUT) and not $system_is_active ) {
